@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:sample="http://schemas.android.com/apk/res-auto">
+
+    <EditTextPreference
+        android:defaultValue="http://"
+        android:key="api_url"
+        android:title="@string/web_service_url" />
+
+    <Preference
+        android:title=""
+        android:defaultValue=""
+        android:key="test_web_service"
+        android:widgetLayout="@layout/pref_test_web_service_button" />
+
+    <com.pavelsikun.seekbarpreference.SeekBarPreference
+        android:defaultValue="70"
+        android:enabled="true"
+        android:key="image_quality"
+        android:title="@string/image_quality"
+        sample:msbp_dialogEnabled="false"
+        sample:msbp_interval="1"
+        sample:msbp_maxValue="100"
+        sample:msbp_measurementUnit="%"
+        sample:msbp_minValue="1" />
+
+    <EditTextPreference
+        android:defaultValue=""
+        android:inputType="textCapWords"
+        android:key="doc_type"
+        android:title="@string/doc_type" />
+
+    <EditTextPreference
+        android:defaultValue=""
+        android:inputType="textCapWords"
+        android:key="device_id"
+        android:title="@string/device_id" />
+
+</PreferenceScreen>
