@@ -1,8 +1,15 @@
 package com.upwork.iurii.dms_uploader;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.util.Log;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,10 +18,18 @@ public class UploadTask extends AsyncTask<Void, Object, Void> {
 
     private static boolean running = false;
     private static UploadTask instance;
+    private String url;
+    private final String docType;
+    private final String deviceID;
+    private Integer imgQuality;
 
     private DBManager db;
 
-    public UploadTask() {
+    public UploadTask(String url, String docType, String deviceID, Integer imgQuality) {
+        this.url = url;
+        this.docType = docType;
+        this.deviceID = deviceID;
+        this.imgQuality = imgQuality;
         instance = this;
         db = DBManager.getInstance();
     }
@@ -39,28 +54,47 @@ public class UploadTask extends AsyncTask<Void, Object, Void> {
         ArrayList<HashMap<String, Object>> queue = db.getQueue();
         for (HashMap<String, Object> record : queue) {
             Integer id = (Integer) record.get("id");
+            String fileurl = (String) record.get("fileurl");
+            String ref = (String) record.get("ref");
             String status = (String) record.get("status");
+
             if (!status.equals("Done")) {
+                Log.e("TASK", (String) record.get("filename"));
+
+                publishProgress(id, "Compressing...");
+                db.updateQueueRecordStatus(id, "Compressing...", null);
+                Bitmap bmp = BitmapFactory.decodeFile(Uri.parse(fileurl).getPath());
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                bmp.compress(Bitmap.CompressFormat.JPEG, imgQuality, bos);
+
+                publishProgress(id, "Uploading...");
+                db.updateQueueRecordStatus(id, "Uploading...", null);
+                HashMap<String, Object> map = new HashMap<>();
+                map.put("deviceid", deviceID);
+                map.put("doctype", docType);
+                map.put("reference", ref);
+                map.put("image", HttpRequest.Base64.encodeBytes(bos.toByteArray()));
+
                 try {
-                    Log.e("TASK", (String) record.get("filename"));
-
-                    publishProgress(id, "Compressing...");
-                    db.updateQueueRecordStatus(id, "Compressing...", null);
-                    Thread.sleep(500);
-
-                    publishProgress(id, "Uploading...");
-                    db.updateQueueRecordStatus(id, "Uploading...", null);
-                    Thread.sleep(3000);
-
-                    if (id == 3) {
-                        publishProgress(id, "Error", "4343");
-                        db.updateQueueRecordStatus(id, "Error", "4343");
-                    } else {
-                        publishProgress(id, "Done", "55545");
-                        db.updateQueueRecordStatus(id, "Done", "55545");
+                    HttpRequest request = HttpRequest.post(url).acceptJson().send(Utils_JSON.mapToJson(map).toString());
+                    String response = request.body();
+                    JSONObject responseJson = new JSONObject(response);
+                    switch (request.code()) {
+                        case 200:
+                            String docno = responseJson.getString("docno");
+                            publishProgress(id, "Done", docno);
+                            db.updateQueueRecordStatus(id, "Done", docno);
+                            break;
+                        case 500:
+                            String text = String.format("%s: %s", responseJson.getString("errorno"), responseJson.getString("errortext"));
+                            publishProgress(id, "Error", text);
+                            db.updateQueueRecordStatus(id, "Error", text);
+                            break;
                     }
-                } catch (InterruptedException e) {
+                } catch (JSONException | HttpRequest.HttpRequestException e) {
                     e.printStackTrace();
+                    publishProgress(id, "Error", "API error");
+                    db.updateQueueRecordStatus(id, "Error", "API error");
                 }
             }
         }

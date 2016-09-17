@@ -29,6 +29,7 @@ import com.google.android.gms.vision.barcode.Barcode;
 import com.upwork.iurii.dms_uploader.BarcodeCaptureActivity;
 import com.upwork.iurii.dms_uploader.DBManager;
 import com.upwork.iurii.dms_uploader.R;
+import com.upwork.iurii.dms_uploader.Settings;
 import com.upwork.iurii.dms_uploader.UploadTask;
 
 import java.io.File;
@@ -125,7 +126,12 @@ public class MainFragment extends Fragment implements View.OnClickListener, Uplo
                 }
                 break;
             case R.id.uploadButton:
-                UploadTask uploadTask = new UploadTask();
+                UploadTask uploadTask = new UploadTask(
+                        (String) Settings.getInstance().getPref(Settings.Pref.api_url),
+                        (String) Settings.getInstance().getPref(Settings.Pref.doc_type),
+                        (String) Settings.getInstance().getPref(Settings.Pref.device_id),
+                        (Integer) Settings.getInstance().getPref(Settings.Pref.image_quality)
+                );
                 uploadTask.setListener(this);
                 uploadTask.execute();
                 break;
@@ -133,7 +139,7 @@ public class MainFragment extends Fragment implements View.OnClickListener, Uplo
     }
 
     private File createImageFile() throws IOException {
-        currentFilename = String.format("%1$s-%2$s", refEditText.getText().toString(), String.valueOf(imageCount + 1));
+        currentFilename = String.format("%1$s-%2$s.jpg", ref, String.valueOf(imageCount + 1));
         File image = new File(getActivity().getExternalFilesDir(Environment.DIRECTORY_PICTURES), currentFilename);
         currentImagePath = image.getAbsolutePath();
         return image;
@@ -167,7 +173,7 @@ public class MainFragment extends Fragment implements View.OnClickListener, Uplo
             }
         } else if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == CommonStatusCodes.SUCCESS_CACHE) {
             imageView.setImageURI(photoURI);
-            DBManager.getInstance().addQueueRecord(currentImagePath, currentFilename, "Queued");
+            DBManager.getInstance().addQueueRecord(currentImagePath, currentFilename, ref, "Queued");
             DBManager.getInstance().increaseCountForRef(ref);
             updateState();
         }

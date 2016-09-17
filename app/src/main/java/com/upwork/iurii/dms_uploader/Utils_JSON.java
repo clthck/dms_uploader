@@ -1,4 +1,4 @@
-package ru.weonmap.android;
+package com.upwork.iurii.dms_uploader;
 
 import org.json.JSONArray;
 import org.json.JSONException;

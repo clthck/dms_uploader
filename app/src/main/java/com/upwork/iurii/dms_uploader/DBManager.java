@@ -11,7 +11,7 @@ import java.util.HashMap;
 
 public class DBManager {
 
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     private static final String DATABASE_NAME = "app_db";
 
     public static DBManager instance;
@@ -59,12 +59,13 @@ public class DBManager {
 
     public ArrayList<HashMap<String, Object>> getQueue() {
         ArrayList<HashMap<String, Object>> result = new ArrayList<>();
-        Cursor cursor = db.rawQuery("SELECT id, fileurl, filename, status, upload_result FROM queue", null);
+        Cursor cursor = db.rawQuery("SELECT id, fileurl, filename, ref, status, upload_result FROM queue", null);
         while (cursor.moveToNext()) {
             HashMap<String, Object> hashMap = new HashMap<>();
             hashMap.put("id", cursor.getInt(cursor.getColumnIndex("id")));
             hashMap.put("fileurl", cursor.getString(cursor.getColumnIndex("fileurl")));
             hashMap.put("filename", cursor.getString(cursor.getColumnIndex("filename")));
+            hashMap.put("ref", cursor.getString(cursor.getColumnIndex("ref")));
             hashMap.put("status", cursor.getString(cursor.getColumnIndex("status")));
             hashMap.put("upload_result", cursor.getString(cursor.getColumnIndex("upload_result")));
             result.add(hashMap);
@@ -73,10 +74,11 @@ public class DBManager {
         return result;
     }
 
-    public void addQueueRecord(String fileurl, String filename, String status) {
+    public void addQueueRecord(String fileurl, String filename, String ref, String status) {
         ContentValues contentValues = new ContentValues();
         contentValues.put("fileurl", fileurl);
         contentValues.put("filename", filename);
+        contentValues.put("ref", ref);
         contentValues.put("status", status);
         db.insert("queue", null, contentValues);
     }
@@ -117,7 +119,7 @@ public class DBManager {
 
         @Override
         public void onCreate(SQLiteDatabase sqLiteDatabase) {
-            sqLiteDatabase.execSQL("CREATE TABLE queue (id INTEGER PRIMARY KEY AUTOINCREMENT, fileurl TEXT, filename TEXT, status TEXT, upload_result TEXT)");
+            sqLiteDatabase.execSQL("CREATE TABLE queue (id INTEGER PRIMARY KEY AUTOINCREMENT, fileurl TEXT, filename TEXT, ref TEXT, status TEXT, upload_result TEXT)");
             sqLiteDatabase.execSQL("CREATE TABLE image_counters (id TEXT PRIMARY KEY, count INTEGER)");
         }
 
