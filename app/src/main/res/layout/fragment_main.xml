@@ -87,7 +87,7 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="50dp"
             android:layout_marginTop="12dp"
             android:orientation="horizontal">
 
@@ -97,7 +97,19 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/upload" />
+                android:text="@string/upload"
+                android:layout_gravity="center_vertical"
+                android:visibility="visible" />
+
+            <ProgressBar
+                android:id="@+id/uploadProgress"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="42dp"
+                android:paddingTop="5dp"
+                android:layout_gravity="center_vertical"
+                style="?android:attr/progressBarStyleLarge"
+                android:visibility="gone"></ProgressBar>
 
             <TextView
                 android:id="@+id/queueSizeTextView"

@@ -21,20 +21,21 @@ import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.google.android.gms.common.api.CommonStatusCodes;
 import com.google.android.gms.vision.barcode.Barcode;
 import com.upwork.iurii.dms_uploader.BarcodeCaptureActivity;
 import com.upwork.iurii.dms_uploader.DBManager;
-import com.upwork.iurii.dms_uploader.MainActivity;
 import com.upwork.iurii.dms_uploader.R;
+import com.upwork.iurii.dms_uploader.UploadTask;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
-public class MainFragment extends Fragment implements View.OnClickListener {
+public class MainFragment extends Fragment implements View.OnClickListener, UploadTask.UploadTaskListener {
 
     private static final int RC_BARCODE_CAPTURE = 9001;
     private static final int REQUEST_IMAGE_CAPTURE = 1;
@@ -44,6 +45,8 @@ public class MainFragment extends Fragment implements View.OnClickListener {
     private TextView imageCounterTextView, queueSizeTextView;
     private EditText refEditText;
     private ImageView imageView;
+    private ProgressBar uploadProgress;
+    private Button uploadButton;
 
     private String ref, currentImagePath, currentFilename;
     private Integer imageCount;
@@ -69,6 +72,8 @@ public class MainFragment extends Fragment implements View.OnClickListener {
 
         queueSizeTextView = (TextView) rootView.findViewById(R.id.queueSizeTextView);
 
+        uploadProgress = (ProgressBar) rootView.findViewById(R.id.uploadProgress);
+
         imageCounterTextView = (TextView) rootView.findViewById(R.id.imageCounterTextView);
         imageCounterTextView.setVisibility(View.GONE);
 
@@ -92,7 +97,7 @@ public class MainFragment extends Fragment implements View.OnClickListener {
 
         Button scanButton = (Button) rootView.findViewById(R.id.scanButton);
         scanButton.setOnClickListener(this);
-        Button uploadButton = (Button) rootView.findViewById(R.id.uploadButton);
+        uploadButton = (Button) rootView.findViewById(R.id.uploadButton);
         uploadButton.setOnClickListener(this);
 
         imageView = (ImageView) rootView.findViewById(R.id.imageView);
@@ -120,7 +125,9 @@ public class MainFragment extends Fragment implements View.OnClickListener {
                 }
                 break;
             case R.id.uploadButton:
-                ((MainActivity) getActivity()).openQueueFragment();
+                UploadTask uploadTask = new UploadTask();
+                uploadTask.setListener(this);
+                uploadTask.execute();
                 break;
         }
     }
@@ -180,6 +187,15 @@ public class MainFragment extends Fragment implements View.OnClickListener {
     }
 
     private void updateState() {
+        if (UploadTask.isRunning()) {
+            uploadProgress.setVisibility(View.VISIBLE);
+            uploadButton.setVisibility(View.GONE);
+            UploadTask.getRunningTask().setListener(this);
+        } else {
+            uploadProgress.setVisibility(View.GONE);
+            uploadButton.setVisibility(View.VISIBLE);
+        }
+
         if (!ref.isEmpty()) {
             imageCount = DBManager.getInstance().getCountForRef(ref);
             imageCounterTextView.setText(String.valueOf(imageCount));
@@ -190,4 +206,17 @@ public class MainFragment extends Fragment implements View.OnClickListener {
         queueSizeTextView.setText(String.format(getResources().getString(R.string.queue_size), DBManager.getInstance().getQueuePendingSize()));
     }
 
+    @Override
+    public void onStatusChanged(Integer id, String status, String uploadResult) {
+    }
+
+    @Override
+    public void onFinished() {
+        updateState();
+    }
+
+    @Override
+    public void onStarted() {
+        updateState();
+    }
 }

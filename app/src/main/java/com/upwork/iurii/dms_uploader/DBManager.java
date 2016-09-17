@@ -88,13 +88,20 @@ public class DBManager {
         db.update("queue", contentValues, "id = ?", new String[]{String.valueOf(id)});
     }
 
-    public void clearQueueByStatus(String status) {
+    public ArrayList<String> clearQueueByStatus(String status) {
+        ArrayList<String> result = new ArrayList<>();
+        Cursor cursor = db.rawQuery("SELECT fileurl FROM queue WHERE status = ?", new String[]{status});
+        while (cursor.moveToNext()) {
+            result.add(cursor.getString(0));
+        }
+        cursor.close();
         db.delete("queue", "status = ?", new String[]{status});
+        return result;
     }
 
     public int getQueuePendingSize() {
         int result = 0;
-        Cursor cursor = db.rawQuery("SELECT COUNT(*) FROM queue WHERE upload_result is NULL", null);
+        Cursor cursor = db.rawQuery("SELECT COUNT(*) FROM queue WHERE status <> ?", new String[]{"Done"});
         if (cursor.moveToNext()) {
             result = cursor.getInt(0);
         }

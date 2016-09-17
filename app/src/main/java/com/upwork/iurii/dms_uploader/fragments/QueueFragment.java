@@ -2,11 +2,13 @@ package com.upwork.iurii.dms_uploader.fragments;
 
 
 import android.app.Fragment;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,7 +18,9 @@ import android.widget.TextView;
 
 import com.upwork.iurii.dms_uploader.DBManager;
 import com.upwork.iurii.dms_uploader.R;
+import com.upwork.iurii.dms_uploader.UploadTask;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -25,6 +29,7 @@ public class QueueFragment extends Fragment implements UploadTask.UploadTaskList
     private View rootView;
     private RecyclerView recyclerView;
     private Button clearButton;
+    private QueueAdapter adapter;
 
     private HashMap<Integer, QueueAdapter.QueueRecord> mapViewHolderById;
 
@@ -48,7 +53,7 @@ public class QueueFragment extends Fragment implements UploadTask.UploadTaskList
         recyclerView = (RecyclerView) rootView.findViewById(R.id.recyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(getActivity()));
         recyclerView.setItemAnimator(new DefaultItemAnimator());
-        QueueAdapter adapter = new QueueAdapter(DBManager.getInstance().getQueue(), R.layout.item_queue);
+        adapter = new QueueAdapter(DBManager.getInstance().getQueue(), R.layout.item_queue);
         recyclerView.setAdapter(adapter);
 
         if (UploadTask.isRunning()) {
@@ -59,10 +64,10 @@ public class QueueFragment extends Fragment implements UploadTask.UploadTaskList
     }
 
     @Override
-    public void onStatusChanged(Integer id, String status) {
+    public void onStatusChanged(Integer id, String status, String uploadResult) {
         QueueAdapter.QueueRecord queueRecord = mapViewHolderById.get(id);
         if (queueRecord != null) {
-            queueRecord.setStatus(status);
+            queueRecord.setStatus(status, uploadResult);
         }
     }
 
@@ -80,10 +85,19 @@ public class QueueFragment extends Fragment implements UploadTask.UploadTaskList
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.clearButton:
-                UploadTask uploadTask = new UploadTask();
-                uploadTask.setListener(this);
-                uploadTask.execute();
-                //DBManager.getInstance().clearQueueByStatus("Done");
+                ArrayList<String> filesToDelete = DBManager.getInstance().clearQueueByStatus("Done");
+                for (String uri : filesToDelete) {
+                    File fdelete = new File(Uri.parse(uri).getPath());
+                    if (fdelete.exists()) {
+                        if (fdelete.delete()) {
+                            Log.e("queue", "file Deleted :" + uri);
+                        } else {
+                            Log.e("queue", "file not deleted :" + uri);
+                        }
+                    }
+                }
+                adapter = new QueueAdapter(DBManager.getInstance().getQueue(), R.layout.item_queue);
+                recyclerView.setAdapter(adapter);
                 break;
         }
     }
@@ -174,13 +188,10 @@ public class QueueFragment extends Fragment implements UploadTask.UploadTaskList
                 this.uploadResult = uploadResult;
             }
 
-            void setStatus(String status) {
+            void setStatus(String status, String uploadResult) {
                 this.status = status;
+                this.uploadResult = uploadResult;
                 notifyItemChanged(position);
-            }
-
-            public int getPosition() {
-                return position;
             }
 
             public String getFilename() {
