@@ -14,7 +14,7 @@ public class DBManager {
     private static final int VERSION = 2;
     private static final String DATABASE_NAME = "app_db";
 
-    public static DBManager instance;
+    private static DBManager instance;
 
     private SQLiteDatabase db;
 
@@ -25,6 +25,7 @@ public class DBManager {
     }
 
     private DBManager() {
+        instance = this;
         DBHelper dbHelper = new DBHelper(MyApplication.getInstance(), DATABASE_NAME, VERSION);
         db = dbHelper.getWritableDatabase();
     }
