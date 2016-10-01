@@ -14,14 +14,14 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.content.FileProvider;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.google.android.gms.common.api.CommonStatusCodes;
@@ -29,11 +29,12 @@ import com.google.android.gms.vision.barcode.Barcode;
 import com.upwork.iurii.dms_uploader.BarcodeCaptureActivity;
 import com.upwork.iurii.dms_uploader.DBManager;
 import com.upwork.iurii.dms_uploader.R;
-import com.upwork.iurii.dms_uploader.Settings;
 import com.upwork.iurii.dms_uploader.UploadTask;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 public class MainFragment extends Fragment implements View.OnClickListener, UploadTask.UploadTaskListener {
@@ -42,18 +43,18 @@ public class MainFragment extends Fragment implements View.OnClickListener, Uplo
     private static final int REQUEST_IMAGE_CAPTURE = 1;
 
     private View rootView;
-    private CompoundButton useFlash;
     private TextView imageCounterTextView, queueSizeTextView;
     private EditText refEditText;
-    private ImageView imageView;
-    private ProgressBar uploadProgress;
-    private Button uploadButton;
+    private ImageView imageView, deleteImageView, backImageView, forwardImageView;
 
-    private String ref, currentImagePath, currentFilename;
-    private Integer imageCount;
+    private String ref, tempImagePath, tempFilename;
+    private QueueImage currentImage;
+    private Integer queueSize;
 
-    private Uri photoURI;
     private MediaPlayer mp;
+    private DBManager db;
+
+    private ArrayList<QueueImage> newImages;
 
     public MainFragment() {
     }
@@ -64,7 +65,21 @@ public class MainFragment extends Fragment implements View.OnClickListener, Uplo
         setRetainInstance(true);
         getActivity().setTitle(R.string.nav_main_screen);
         mp = MediaPlayer.create(getActivity(), R.raw.rvrb2);
-        ref = "";
+        db = DBManager.getInstance();
+        queueSize = 0;
+        if (UploadTask.isRunning()) {
+            UploadTask.getRunningTask().setListener(this);
+        }
+    }
+
+    private ArrayList<QueueImage> fillQueueImagesList() {
+        ArrayList<QueueImage> list = new ArrayList<>();
+        ArrayList<HashMap<String, Object>> queues = db.getNewRecordsByRef(ref);
+        for (HashMap<String, Object> queueRecord : queues) {
+            list.add(new QueueImage((Integer) queueRecord.get("id"), (String) queueRecord.get("filename"), (String) queueRecord.get("fileurl"), (String) queueRecord.get("ref")));
+        }
+        updateState();
+        return list;
     }
 
     @Override
@@ -73,12 +88,8 @@ public class MainFragment extends Fragment implements View.OnClickListener, Uplo
 
         queueSizeTextView = (TextView) rootView.findViewById(R.id.queueSizeTextView);
 
-        uploadProgress = (ProgressBar) rootView.findViewById(R.id.uploadProgress);
-
         imageCounterTextView = (TextView) rootView.findViewById(R.id.imageCounterTextView);
         imageCounterTextView.setVisibility(View.GONE);
-
-        useFlash = (CompoundButton) rootView.findViewById(R.id.use_flash);
 
         refEditText = (EditText) rootView.findViewById(R.id.refEditText);
         refEditText.addTextChangedListener(new TextWatcher() {
@@ -96,15 +107,26 @@ public class MainFragment extends Fragment implements View.OnClickListener, Uplo
             }
         });
 
-        Button scanButton = (Button) rootView.findViewById(R.id.scanButton);
+        ImageButton scanButton = (ImageButton) rootView.findViewById(R.id.scanButton);
         scanButton.setOnClickListener(this);
-        uploadButton = (Button) rootView.findViewById(R.id.uploadButton);
+        Button uploadButton = (Button) rootView.findViewById(R.id.uploadButton);
         uploadButton.setOnClickListener(this);
 
         imageView = (ImageView) rootView.findViewById(R.id.imageView);
         imageView.setOnClickListener(this);
+        deleteImageView = (ImageView) rootView.findViewById(R.id.deleteImageView);
+        deleteImageView.setOnClickListener(this);
+        backImageView = (ImageView) rootView.findViewById(R.id.backImageView);
+        backImageView.setOnClickListener(this);
+        forwardImageView = (ImageView) rootView.findViewById(R.id.forwardImageView);
+        forwardImageView.setOnClickListener(this);
 
-        updateState();
+        setRef("");
+        if (newImages.size() > 0) {
+            setCurrentImage(newImages.size() - 1);
+        } else {
+            updateState();
+        }
 
         return rootView;
     }
@@ -114,11 +136,10 @@ public class MainFragment extends Fragment implements View.OnClickListener, Uplo
         switch (v.getId()) {
             case R.id.scanButton:
                 Intent intent = new Intent(getActivity(), BarcodeCaptureActivity.class);
-                intent.putExtra(BarcodeCaptureActivity.UseFlash, useFlash.isChecked());
+                intent.putExtra(BarcodeCaptureActivity.UseFlash, false);
                 startActivityForResult(intent, RC_BARCODE_CAPTURE);
                 break;
             case R.id.imageView:
-                // TODO: 15.09.2016 add from gallery
                 if (ref.isEmpty()) {
                     Snackbar.make(rootView, "Set REF first", Snackbar.LENGTH_LONG).show();
                 } else {
@@ -126,37 +147,50 @@ public class MainFragment extends Fragment implements View.OnClickListener, Uplo
                 }
                 break;
             case R.id.uploadButton:
-                UploadTask uploadTask = new UploadTask(
-                        (String) Settings.getInstance().getPref(Settings.Pref.api_url),
-                        (String) Settings.getInstance().getPref(Settings.Pref.doc_type),
-                        (String) Settings.getInstance().getPref(Settings.Pref.device_id),
-                        (Integer) Settings.getInstance().getPref(Settings.Pref.image_quality)
-                );
-                uploadTask.setListener(this);
-                uploadTask.execute();
+                if ((queueSize > 0 || newImages.size() > 0) && !UploadTask.isRunning()) {
+                    ArrayList<HashMap<String, Object>> list = db.getNewRecordsByRef(ref);
+                    list.addAll(db.getQueuePendingRecords());
+                    UploadTask uploadTask = new UploadTask(list);
+                    uploadTask.setListener(this);
+                    uploadTask.execute();
+                    setRef("");
+                    refEditText.setText("");
+                }
+                break;
+            case R.id.deleteImageView:
+                deleteImage();
+                break;
+            case R.id.backImageView:
+                setCurrentImage(newImages.indexOf(currentImage) - 1);
+                break;
+            case R.id.forwardImageView:
+                setCurrentImage(newImages.indexOf(currentImage) + 1);
                 break;
         }
     }
 
-    private File createImageFile() throws IOException {
-        currentFilename = String.format("%1$s-%2$s.jpg", ref, String.valueOf(imageCount + 1));
-        File image = new File(getActivity().getExternalFilesDir(Environment.DIRECTORY_PICTURES), currentFilename);
-        currentImagePath = image.getAbsolutePath();
-        return image;
+    private Uri createImageFile() throws IOException {
+        tempFilename = String.format("%1$s-%2$s.jpg", ref, String.valueOf(System.currentTimeMillis() / 1000));
+        File image = new File(getActivity().getExternalFilesDir(Environment.DIRECTORY_PICTURES), tempFilename);
+        tempImagePath = image.getAbsolutePath();
+        return getUriFromFile(image);
+    }
+
+    private Uri getUriFromFile(File image) {
+        return FileProvider.getUriForFile(getActivity(), "com.upwork.iurii.dms_uploader.fileprovider", image);
     }
 
     private void dispatchTakePictureIntent() {
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         if (takePictureIntent.resolveActivity(getActivity().getPackageManager()) != null) {
             try {
-                File photoFile = createImageFile();
-                photoURI = FileProvider.getUriForFile(getActivity(), "com.upwork.iurii.dms_uploader.fileprovider", photoFile);
+                Uri uri = createImageFile();
                 List<ResolveInfo> resInfoList = getActivity().getPackageManager().queryIntentActivities(takePictureIntent, PackageManager.MATCH_DEFAULT_ONLY);
                 for (ResolveInfo resolveInfo : resInfoList) {
                     String packageName = resolveInfo.activityInfo.packageName;
-                    getActivity().grantUriPermission(packageName, photoURI, Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    getActivity().grantUriPermission(packageName, uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 }
-                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, uri);
                 startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
             } catch (IOException ignored) {
             }
@@ -172,9 +206,9 @@ public class MainFragment extends Fragment implements View.OnClickListener, Uplo
                 refEditText.setText(barcode.displayValue);
             }
         } else if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == CommonStatusCodes.SUCCESS_CACHE) {
-            imageView.setImageURI(photoURI);
-            DBManager.getInstance().addQueueRecord(currentImagePath, currentFilename, ref, "Queued");
-            DBManager.getInstance().increaseCountForRef(ref);
+            int id = db.addNewRecord(tempImagePath, tempFilename, ref);
+            newImages.add(new QueueImage(id, tempFilename, tempImagePath, ref));
+            setCurrentImage(newImages.size() - 1);
             updateState();
         }
     }
@@ -185,35 +219,99 @@ public class MainFragment extends Fragment implements View.OnClickListener, Uplo
     }
 
     private void setRef(String ref) {
-        imageView.setImageDrawable(ContextCompat.getDrawable(getActivity(), R.drawable.make_photo));
-        photoURI = null;
-        imageCounterTextView.setVisibility(View.GONE);
         this.ref = ref;
+        clearImages();
+        newImages = fillQueueImagesList();
+        if (newImages.size() > 0) {
+            setCurrentImage(newImages.size() - 1);
+        }
         updateState();
     }
 
-    private void updateState() {
-        if (UploadTask.isRunning()) {
-            uploadProgress.setVisibility(View.VISIBLE);
-            uploadButton.setVisibility(View.GONE);
-            UploadTask.getRunningTask().setListener(this);
-        } else {
-            uploadProgress.setVisibility(View.GONE);
-            uploadButton.setVisibility(View.VISIBLE);
+    private void deleteImage() {
+        db.deleteRecordById(currentImage.getId());
+        File fdelete = new File(currentImage.getImagePath());
+        if (fdelete.exists()) {
+            if (fdelete.delete()) {
+                Log.e("queue", "file Deleted :" + currentImage.getImagePath());
+            } else {
+                Log.e("queue", "file not deleted :" + currentImage.getImagePath());
+            }
         }
+        int index = newImages.indexOf(currentImage);
+        if (newImages.size() == 1) {
+            newImages.remove(index);
+            clearImages();
+        } else if (index == 0) {
+            newImages.remove(index);
+            setCurrentImage(index);
+        } else if (index > 0) {
+            newImages.remove(index);
+            setCurrentImage(index - 1);
+        }
+        updateState();
+    }
 
+    private void clearImages() {
+        imageView.setImageDrawable(ContextCompat.getDrawable(getActivity(), R.drawable.make_photo));
+        deleteImageView.setVisibility(View.GONE);
+        currentImage = null;
+        newImages = new ArrayList<>();
+        updateBackForwardArrowsState();
+    }
+
+    public void setCurrentImage(int listPosition) {
+        this.currentImage = newImages.get(listPosition);
+        imageView.setImageURI(getUriFromFile(new File(currentImage.getImagePath())));
+        deleteImageView.setVisibility(View.VISIBLE);
+        deleteImageView.bringToFront();
+        updateBackForwardArrowsState();
+    }
+
+    private void updateState() {
+        updateImageCounter();
+        updateQueueSize();
+    }
+
+    private void updateImageCounter() {
         if (!ref.isEmpty()) {
-            imageCount = DBManager.getInstance().getCountForRef(ref);
-            imageCounterTextView.setText(String.valueOf(imageCount));
+            imageCounterTextView.setText(String.valueOf(newImages.size()));
             imageCounterTextView.setVisibility(View.VISIBLE);
             imageCounterTextView.bringToFront();
+        } else {
+            imageCounterTextView.setVisibility(View.GONE);
         }
+    }
 
-        queueSizeTextView.setText(String.format(getResources().getString(R.string.queue_size), DBManager.getInstance().getQueuePendingSize()));
+    private void updateQueueSize() {
+        queueSize = db.getQueuePendingRecords().size();
+        if (queueSize > 0) {
+            queueSizeTextView.setTextColor(ContextCompat.getColor(getActivity(), android.R.color.holo_red_dark));
+        } else {
+            queueSizeTextView.setTextColor(ContextCompat.getColor(getActivity(), android.R.color.black));
+        }
+        queueSizeTextView.setText(String.format(getResources().getString(R.string.queue_size), queueSize));
+    }
+
+    private void updateBackForwardArrowsState() {
+        int size = newImages.size();
+        backImageView.setVisibility(View.GONE);
+        forwardImageView.setVisibility(View.GONE);
+        if (size <= 1) {
+            return;
+        }
+        int index = newImages.indexOf(currentImage);
+        if (index < size - 1) {
+            forwardImageView.setVisibility(View.VISIBLE);
+        }
+        if (index > 0) {
+            backImageView.setVisibility(View.VISIBLE);
+        }
     }
 
     @Override
     public void onStatusChanged(Integer id, String status, String uploadResult) {
+        updateQueueSize();
     }
 
     @Override
@@ -224,5 +322,35 @@ public class MainFragment extends Fragment implements View.OnClickListener, Uplo
     @Override
     public void onStarted() {
         updateState();
+    }
+
+    class QueueImage {
+        private Integer id;
+        private String filename;
+        private String imagePath;
+        private String ref;
+
+        QueueImage(Integer id, String filename, String imagePath, String ref) {
+            this.id = id;
+            this.filename = filename;
+            this.imagePath = imagePath;
+            this.ref = ref;
+        }
+
+        public Integer getId() {
+            return id;
+        }
+
+        public String getFilename() {
+            return filename;
+        }
+
+        public String getImagePath() {
+            return imagePath;
+        }
+
+        public String getRef() {
+            return ref;
+        }
     }
 }

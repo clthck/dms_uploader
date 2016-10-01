@@ -5,8 +5,8 @@ import android.preference.PreferenceManager;
 
 public class Settings implements SharedPreferences.OnSharedPreferenceChangeListener {
 
-    private SharedPreferences sharedPreferences;
     private static Settings instance;
+    private SharedPreferences sharedPreferences;
     private MyApplication application;
 
     private Settings() {
@@ -81,6 +81,8 @@ public class Settings implements SharedPreferences.OnSharedPreferenceChangeListe
     public enum Pref {
         image_quality(Integer.class, 70),
         api_url(String.class, "http://"),
+        api_username(String.class, ""),
+        api_password(String.class, ""),
         doc_type(String.class, ""),
         device_id(String.class, ""),
         test_web_service(String.class, "");

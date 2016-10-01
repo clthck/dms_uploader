@@ -9,10 +9,15 @@ public class TestWebserviceTask extends AsyncTask<Void, Void, Boolean> {
 
     private String url;
     private WeakReference<TestResultListener> listener;
+    private String username;
+    private String password;
 
-    public TestWebserviceTask(String url, TestResultListener listener) {
-        this.url = url;
+    public TestWebserviceTask(TestResultListener listener) {
+        url = (String) Settings.getInstance().getPref(Settings.Pref.api_url);
+        ;
         this.listener = new WeakReference<>(listener);
+        username = (String) Settings.getInstance().getPref(Settings.Pref.api_username);
+        password = (String) Settings.getInstance().getPref(Settings.Pref.api_password);
     }
 
     @Override
@@ -24,7 +29,7 @@ public class TestWebserviceTask extends AsyncTask<Void, Void, Boolean> {
         map.put("reference", "");
         map.put("image", "");
         try {
-            if (HttpRequest.post(url).acceptJson().send(Utils_JSON.mapToJson(map).toString()).code() == 500)
+            if (HttpRequest.post(url).basic(username, password).send(Utils_JSON.mapToJson(map).toString()).code() == 200)
                 return true;
         } catch (HttpRequest.HttpRequestException ignored) {
         }

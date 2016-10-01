@@ -60,6 +60,8 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
             return;
         }
         SharedPreferences sharedPrefs = getPreferenceManager().getSharedPreferences();
-        preference.setSummary(sharedPrefs.getString(key, "Default"));
+        if (!key.equals("api_password") && !key.equals("app_version")) {
+            preference.setSummary(sharedPrefs.getString(key, ""));
+        }
     }
 }

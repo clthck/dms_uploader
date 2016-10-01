@@ -16,12 +16,14 @@
     <string name="nav_main_screen">Main screen</string>
     <string name="test_web_service">Test Web Service</string>
     <string name="web_service_url">Web Service URL</string>
+    <string name="api_username">Username</string>
+    <string name="api_password">Password</string>
     <string name="image_quality">Image Quality</string>
     <string name="doc_type">Doc Type</string>
     <string name="device_id">Device ID</string>
     <string name="nav_queue">Queue</string>
     <string name="nav_header_device_id">Device ID:</string>
     <string name="upload">UPLOAD</string>
-    <string name="queue_size">Queue size: %1$d</string>
+    <string name="queue_size">QUEUE SIZE: %1$d</string>
     <string name="clear">CLEAR</string>
 </resources>

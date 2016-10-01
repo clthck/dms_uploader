@@ -7,6 +7,7 @@ import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.NavigationView;
 import android.support.design.widget.Snackbar;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
@@ -15,7 +16,6 @@ import android.support.v7.widget.Toolbar;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.upwork.iurii.dms_uploader.fragments.MainFragment;
 import com.upwork.iurii.dms_uploader.fragments.QueueFragment;
@@ -99,12 +99,21 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     public boolean onNavigationItemSelected(@NonNull MenuItem item) {
 
         int id = item.getItemId();
+        drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
 
         FragmentTransaction fragmentTransaction = getFragmentManager().beginTransaction();
 
-        if (((String) settings.getPref(Settings.Pref.device_id)).isEmpty() || ((String) settings.getPref(Settings.Pref.doc_type)).isEmpty()) {
+        Snackbar snackbar;
+        if (((String) settings.getPref(Settings.Pref.device_id)).isEmpty()) {
             id = R.id.fragment_settings;
-            Toast.makeText(MainActivity.this, "Set parameters", Toast.LENGTH_LONG).show();
+            snackbar = Snackbar.make(drawer, "Set device id", Snackbar.LENGTH_LONG);
+            snackbar.getView().setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
+            snackbar.show();
+        } else if (((String) settings.getPref(Settings.Pref.doc_type)).isEmpty()) {
+            id = R.id.fragment_settings;
+            snackbar = Snackbar.make(drawer, "Set doc type", Snackbar.LENGTH_LONG);
+            snackbar.getView().setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
+            snackbar.show();
         }
 
         if (id == R.id.fragment_main) {
@@ -120,13 +129,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
         fragmentTransaction.commit();
 
-        drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
         return true;
     }
 
     public void onTestButtonClick(View view) {
-        new TestWebserviceTask((String) Settings.getInstance().getPref(Settings.Pref.api_url), this).execute();
+        new TestWebserviceTask(this).execute();
     }
 
     @Override

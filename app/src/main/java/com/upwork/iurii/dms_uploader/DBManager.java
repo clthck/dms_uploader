@@ -11,18 +11,12 @@ import java.util.HashMap;
 
 public class DBManager {
 
-    private static final int VERSION = 2;
+    private static final int VERSION = 3;
     private static final String DATABASE_NAME = "app_db";
 
     private static DBManager instance;
 
     private SQLiteDatabase db;
-
-    public static DBManager getInstance() {
-        if (instance == null)
-            return new DBManager();
-        else return instance;
-    }
 
     private DBManager() {
         instance = this;
@@ -30,86 +24,113 @@ public class DBManager {
         db = dbHelper.getWritableDatabase();
     }
 
-    public int getCountForRef(String ref) {
-        int result = 0;
-        Cursor cursor = db.rawQuery("SELECT count FROM image_counters WHERE id = ?", new String[]{ref});
-        if (cursor.moveToNext()) result = cursor.getInt(cursor.getColumnIndex("count"));
-        cursor.close();
-        return result;
+    public static DBManager getInstance() {
+        if (instance == null)
+            return new DBManager();
+        else return instance;
     }
 
-    public int increaseCountForRef(String ref) {
-        int result;
-        Cursor cursor = db.rawQuery("SELECT count FROM image_counters WHERE id = ?", new String[]{ref});
-        if (cursor.moveToNext()) {
-            int currentCount = cursor.getInt(cursor.getColumnIndex("count")) + 1;
-            ContentValues contentValues = new ContentValues();
-            contentValues.put("count", currentCount);
-            db.update("image_counters", contentValues, "id = ?", new String[]{ref});
-            result = currentCount;
-        } else {
-            ContentValues contentValues = new ContentValues();
-            contentValues.put("id", ref);
-            contentValues.put("count", 1);
-            db.insert("image_counters", null, contentValues);
-            result = 1;
-        }
-        cursor.close();
-        return result;
-    }
-
-    public ArrayList<HashMap<String, Object>> getQueue() {
-        ArrayList<HashMap<String, Object>> result = new ArrayList<>();
-        Cursor cursor = db.rawQuery("SELECT id, fileurl, filename, ref, status, upload_result FROM queue", null);
-        while (cursor.moveToNext()) {
-            HashMap<String, Object> hashMap = new HashMap<>();
-            hashMap.put("id", cursor.getInt(cursor.getColumnIndex("id")));
-            hashMap.put("fileurl", cursor.getString(cursor.getColumnIndex("fileurl")));
-            hashMap.put("filename", cursor.getString(cursor.getColumnIndex("filename")));
-            hashMap.put("ref", cursor.getString(cursor.getColumnIndex("ref")));
-            hashMap.put("status", cursor.getString(cursor.getColumnIndex("status")));
-            hashMap.put("upload_result", cursor.getString(cursor.getColumnIndex("upload_result")));
-            result.add(hashMap);
-        }
-        cursor.close();
-        return result;
-    }
-
-    public void addQueueRecord(String fileurl, String filename, String ref, String status) {
+    public int addNewRecord(String fileurl, String filename, String ref) {
         ContentValues contentValues = new ContentValues();
         contentValues.put("fileurl", fileurl);
         contentValues.put("filename", filename);
         contentValues.put("ref", ref);
-        contentValues.put("status", status);
-        db.insert("queue", null, contentValues);
+        contentValues.put("status", RecordStatus.NEW);
+        return (int) db.insert("records", null, contentValues);
     }
 
-    public void updateQueueRecordStatus(Integer id, String status, String upload_result) {
+    public void deleteRecordById(int id) {
+        db.delete("records", "id = ?", new String[]{String.valueOf(id)});
+    }
+
+    public HashMap<String, Object> getRecordById(int id) {
+        HashMap<String, Object> result = null;
+        Cursor cursor = db.rawQuery("SELECT * FROM records WHERE id = ?", new String[]{String.valueOf(id)});
+        if (cursor.moveToNext()) {
+            result = generateRecordObject(cursor);
+        }
+        cursor.close();
+        return result;
+    }
+
+    public void updateRecordStatus(Integer id, String status, String upload_result) {
         ContentValues contentValues = new ContentValues();
         contentValues.put("status", status);
         if (upload_result != null) contentValues.put("upload_result", upload_result);
-        db.update("queue", contentValues, "id = ?", new String[]{String.valueOf(id)});
+        db.update("records", contentValues, "id = ?", new String[]{String.valueOf(id)});
     }
 
-    public ArrayList<String> clearQueueByStatus(String status) {
+    public ArrayList<String> clearQueueByStatusDone() {
         ArrayList<String> result = new ArrayList<>();
-        Cursor cursor = db.rawQuery("SELECT fileurl FROM queue WHERE status = ?", new String[]{status});
+        Cursor cursor = db.rawQuery("SELECT fileurl FROM records WHERE status = ?", new String[]{RecordStatus.DONE});
         while (cursor.moveToNext()) {
             result.add(cursor.getString(0));
         }
         cursor.close();
-        db.delete("queue", "status = ?", new String[]{status});
+        db.delete("records", "status = ?", new String[]{RecordStatus.DONE});
         return result;
     }
 
-    public int getQueuePendingSize() {
-        int result = 0;
-        Cursor cursor = db.rawQuery("SELECT COUNT(*) FROM queue WHERE status <> ?", new String[]{"Done"});
-        if (cursor.moveToNext()) {
-            result = cursor.getInt(0);
+    public ArrayList<String> clearQueueByStatusError() {
+        ArrayList<String> result = new ArrayList<>();
+        Cursor cursor = db.rawQuery("SELECT fileurl FROM records WHERE status = ?", new String[]{RecordStatus.ERROR});
+        while (cursor.moveToNext()) {
+            result.add(cursor.getString(0));
+        }
+        cursor.close();
+        db.delete("records", "status = ?", new String[]{RecordStatus.ERROR});
+        return result;
+    }
+
+    public ArrayList<HashMap<String, Object>> getQueuePendingRecords() {
+        ArrayList<HashMap<String, Object>> result = new ArrayList<>();
+        Cursor cursor = db.rawQuery("SELECT * FROM records WHERE status != ? AND status != ?", new String[]{RecordStatus.DONE, RecordStatus.NEW});
+        while (cursor.moveToNext()) {
+            result.add(generateRecordObject(cursor));
         }
         cursor.close();
         return result;
+    }
+
+    public ArrayList<HashMap<String, Object>> getQueueRecords() {
+        ArrayList<HashMap<String, Object>> result = new ArrayList<>();
+        Cursor cursor = db.rawQuery("SELECT * FROM records WHERE status != ?", new String[]{RecordStatus.NEW});
+        while (cursor.moveToNext()) {
+            result.add(generateRecordObject(cursor));
+        }
+        cursor.close();
+        return result;
+    }
+
+    public ArrayList<HashMap<String, Object>> getQueueErroredRecords() {
+        ArrayList<HashMap<String, Object>> result = new ArrayList<>();
+        Cursor cursor = db.rawQuery("SELECT * FROM records WHERE status = ?", new String[]{RecordStatus.ERROR});
+        while (cursor.moveToNext()) {
+            result.add(generateRecordObject(cursor));
+        }
+        cursor.close();
+        return result;
+    }
+
+    public ArrayList<HashMap<String, Object>> getNewRecordsByRef(String ref) {
+        ArrayList<HashMap<String, Object>> result = new ArrayList<>();
+        Cursor cursor = db.rawQuery("SELECT * FROM records WHERE status = ? AND ref = ?", new String[]{RecordStatus.NEW, ref});
+        while (cursor.moveToNext()) {
+            result.add(generateRecordObject(cursor));
+        }
+        cursor.close();
+        return result;
+    }
+
+    private HashMap<String, Object> generateRecordObject(Cursor cursor) {
+        HashMap<String, Object> hashMap = new HashMap<>();
+        hashMap.put("id", cursor.getInt(cursor.getColumnIndex("id")));
+        hashMap.put("fileurl", cursor.getString(cursor.getColumnIndex("fileurl")));
+        hashMap.put("filename", cursor.getString(cursor.getColumnIndex("filename")));
+        hashMap.put("ref", cursor.getString(cursor.getColumnIndex("ref")));
+        hashMap.put("status", cursor.getString(cursor.getColumnIndex("status")));
+        hashMap.put("upload_result", cursor.getString(cursor.getColumnIndex("upload_result")));
+        return hashMap;
     }
 
     private class DBHelper extends SQLiteOpenHelper {
@@ -120,14 +141,12 @@ public class DBManager {
 
         @Override
         public void onCreate(SQLiteDatabase sqLiteDatabase) {
-            sqLiteDatabase.execSQL("CREATE TABLE queue (id INTEGER PRIMARY KEY AUTOINCREMENT, fileurl TEXT, filename TEXT, ref TEXT, status TEXT, upload_result TEXT)");
-            sqLiteDatabase.execSQL("CREATE TABLE image_counters (id TEXT PRIMARY KEY, count INTEGER)");
+            sqLiteDatabase.execSQL("CREATE TABLE records (id INTEGER PRIMARY KEY AUTOINCREMENT, fileurl TEXT, filename TEXT, ref TEXT, status TEXT, upload_result TEXT)");
         }
 
         @Override
         public void onUpgrade(SQLiteDatabase sqLiteDatabase, int i, int i1) {
-            sqLiteDatabase.execSQL("DROP TABLE IF EXISTS queue");
-            sqLiteDatabase.execSQL("DROP TABLE IF EXISTS image_counters");
+            sqLiteDatabase.execSQL("DROP TABLE IF EXISTS records");
             onCreate(sqLiteDatabase);
         }
     }

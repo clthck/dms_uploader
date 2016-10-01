@@ -8,9 +8,10 @@ android {
         applicationId "com.upwork.iurii.dms_uploader"
         minSdkVersion 17
         targetSdkVersion 24
-        versionCode 1
-        versionName "1.0"
+        versionCode 5
+        versionName "1.22"
         setProperty("archivesBaseName", "DMS_Uploader-$versionName")
+        resValue "string", "app_version", versionName
     }
     buildTypes {
         release {
@@ -26,6 +27,6 @@ dependencies {
     compile 'com.android.support:appcompat-v7:24.2.1'
     compile 'com.android.support:design:24.2.1'
     compile 'com.android.support:support-v4:24.2.1'
-    compile 'com.google.android.gms:play-services-vision:9.4.0'
+    compile 'com.google.android.gms:play-services-vision:9.6.1'
     compile 'com.pavelsikun:material-seekbar-preference:2.3.0'
 }

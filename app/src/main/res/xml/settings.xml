@@ -7,10 +7,21 @@
         android:key="api_url"
         android:title="@string/web_service_url" />
 
+    <EditTextPreference
+        android:defaultValue=""
+        android:key="api_username"
+        android:title="@string/api_username" />
+
+    <EditTextPreference
+        android:defaultValue=""
+        android:inputType="textPassword"
+        android:key="api_password"
+        android:title="@string/api_password" />
+
     <Preference
-        android:title=""
         android:defaultValue=""
         android:key="test_web_service"
+        android:title=""
         android:widgetLayout="@layout/pref_test_web_service_button" />
 
     <com.pavelsikun.seekbarpreference.SeekBarPreference
@@ -35,5 +46,10 @@
         android:inputType="textCapWords"
         android:key="device_id"
         android:title="@string/device_id" />
+
+    <Preference
+        android:key="app_version"
+        android:summary="@string/app_version"
+        android:title="Version" />
 
 </PreferenceScreen>

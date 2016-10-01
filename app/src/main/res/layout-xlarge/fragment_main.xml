@@ -45,20 +45,6 @@
             android:visibility="gone"
             tools:visibility="visible" />
 
-        <ImageView
-            android:id="@+id/deleteImageView"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentStart="true"
-            android:layout_alignParentTop="true"
-            android:layout_marginLeft="20dp"
-            android:layout_marginTop="25dp"
-            android:background="@drawable/circle_layout"
-            android:padding="10dp"
-            android:src="@drawable/ic_delete"
-            android:visibility="gone"
-            tools:visibility="visible" />
-
         <TextView
             android:id="@+id/imageCounterTextView"
             android:layout_width="wrap_content"
@@ -72,7 +58,22 @@
             android:padding="10dp"
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:textColor="@android:color/white"
+            android:textSize="40sp"
             tools:text="2" />
+
+        <ImageView
+            android:id="@+id/deleteImageView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_alignTop="@+id/imageCounterTextView"
+            android:layout_marginLeft="20dp"
+            android:layout_marginStart="20dp"
+            android:background="@drawable/circle_layout"
+            android:padding="28dp"
+            android:src="@drawable/ic_delete"
+            android:visibility="gone"
+            tools:visibility="visible" />
     </RelativeLayout>
 
     <LinearLayout
@@ -93,7 +94,7 @@
                 android:text="REF:"
                 android:textAppearance="?android:attr/textAppearanceLarge"
                 android:textColor="@android:color/holo_green_dark"
-                android:textSize="30sp"
+                android:textSize="48sp"
                 android:textStyle="bold" />
 
             <EditText
@@ -104,7 +105,7 @@
                 android:inputType="text"
                 android:maxLines="1"
                 android:paddingLeft="10dp"
-                android:textSize="28sp"
+                android:textSize="36sp"
                 tools:text="43343535553353" />
 
             <ImageButton
@@ -126,13 +127,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/upload"
-            android:textSize="48sp" />
+            android:textSize="64sp" />
 
         <TextView
             android:id="@+id/queueSizeTextView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textAppearance="?android:attr/textAppearanceLarge"
+            android:textSize="32sp"
             android:textStyle="bold"
             tools:text="QUEUE SIZE: 3"
             tools:textColor="@android:color/holo_red_dark" />
